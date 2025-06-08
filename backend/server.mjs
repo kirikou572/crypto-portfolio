@@ -22,6 +22,7 @@ app.use(express.json());
 app.use('/auth', authRoutes);
 app.use('/portfolio', portfolioRoutes);
 
+// Sert les fichiers statiques du frontend (si besoin)
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 const PORT = process.env.PORT || 3000;
