@@ -31,7 +31,7 @@ async function loadAndRender() {
 
 // Récupère le portefeuille
 async function fetchPortfolio() {
-  const res = await fetch(`${API}/portfolio`, {
+  const res = await fetch(`${API_BASE_URL}/portfolio`, {
     headers: { Authorization: `Bearer ${getToken()}` }
   });
   if (res.status === 401) return redirectToLogin();
