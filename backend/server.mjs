@@ -10,7 +10,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 
 import authRoutes from './routes/auth.js';
-import portfolioRoutes from './routes/portfolio.js';
+import portfolioRoutes from './routes/portfolio.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
