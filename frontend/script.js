@@ -1,5 +1,5 @@
 
-const BASE_URL = 'https://crypto-portfolio-production-b673.up.railway.app';
+const API_BASE_URL = 'https://crypto-portfolio-production-b673.up.railway.app';
 
 async function login() {
   const email = document.getElementById('email').value;

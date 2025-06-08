@@ -1,4 +1,4 @@
-const API = 'http://localhost:3000';
+const API_BASE_URL = 'https://crypto-portfolio-production-b673.up.railway.app';
 let portfolio = [];
 let pieChart = null;
 
