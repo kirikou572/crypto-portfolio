@@ -3,256 +3,197 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Dashboard - Crypto Portfolio</title>
-  <style>
-    body {
-      background: #121212;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      padding: 2rem;
-    }
-
-    h1, h2 {
-      color: #00bcd4;
-    }
-
-    form {
-      margin-top: 1rem;
-      background: #1e1e1e;
-      padding: 1rem;
-      border-radius: 8px;
-      width: 300px;
-    }
-
-    input {
-      width: 100%;
-      padding: 0.5rem;
-      margin-bottom: 1rem;
-      border: none;
-      border-radius: 4px;
-    }
-
-    button {
-      padding: 0.5rem;
-      background: #00bcd4;
-      border: none;
-      color: white;
-      font-weight: bold;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    button.logout {
-      margin-top: 2rem;
-      background: #f44336;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 2rem;
-    }
-
-    th, td {
-      padding: 0.75rem;
-      text-align: left;
-      border-bottom: 1px solid #444;
-    }
-
-    th {
-      background: #1e1e1e;
-    }
-
-    .total-sum {
-      margin-top: 1rem;
-      font-weight: bold;
-      color: #00e676;
-    }
-
-    .message {
-      margin-top: 1rem;
-    }
-
-    .error {
-      color: #f44336;
-    }
-
-    .success {
-      color: #00e676;
-    }
-  </style>
+  <title>Dashboard Crypto</title>
+  <!-- Bootstrap + Chart.js -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body>
-  <h1>Bienvenue sur votre dashboard</h1>
+<body class="bg-dark text-white">
 
-  <h2>Ajouter une cryptomonnaie</h2>
-  <form id="cryptoForm">
-    <input type="text" id="ticker" placeholder="Ex: BTC" required />
-    <input type="number" step="any" id="amount" placeholder="Quantité" required />
-    <button type="submit">Ajouter</button>
+<div class="container py-4">
+  <h1 class="text-info mb-4">Votre portefeuille crypto</h1>
+
+  <!-- Formulaire d'ajout -->
+  <form id="cryptoForm" class="row g-3 bg-secondary p-3 rounded">
+    <div class="col-md-4">
+      <input type="text" id="ticker" class="form-control" placeholder="Ex: BTC" required />
+    </div>
+    <div class="col-md-4">
+      <input type="number" step="any" id="amount" class="form-control" placeholder="Quantité" required />
+    </div>
+    <div class="col-md-4">
+      <button type="submit" class="btn btn-info w-100">Ajouter la crypto</button>
+    </div>
   </form>
 
-  <div class="message" id="message"></div>
+  <!-- Message -->
+  <div id="message" class="mt-3"></div>
 
-  <table>
-    <thead>
+  <!-- Tableau -->
+  <table class="table table-dark table-bordered table-striped mt-4">
+    <thead class="table-light">
       <tr>
         <th>Ticker</th>
         <th>Quantité</th>
         <th>Prix ($)</th>
         <th>Total ($)</th>
-        <th>Action</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody id="portfolioTable"></tbody>
   </table>
 
-  <div class="total-sum" id="totalSum">Total du portefeuille : $0.00</div>
+  <!-- Total global -->
+  <div class="h5 mt-3 text-success" id="totalSum">Total du portefeuille : $0.00</div>
 
-  <button class="logout" onclick="logout()">Se déconnecter</button>
+  <!-- Graphique -->
+  <div class="my-4">
+    <canvas id="portfolioChart"></canvas>
+  </div>
 
-  <script>
-    const API_URL = "https://crypto-portfolio-production-b673.up.railway.app/portfolio";
+  <button class="btn btn-danger mt-3" onclick="logout()">Se déconnecter</button>
+</div>
 
-    function logout() {
-      localStorage.removeItem("token");
-      window.location.href = "index.html";
-    }
+<script>
+  const API_URL = "https://crypto-portfolio-production-b673.up.railway.app/portfolio";
+  const token = localStorage.getItem("token");
 
-    document.getElementById("cryptoForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
+  function logout() {
+    localStorage.removeItem("token");
+    window.location.href = "index.html";
+  }
 
-      const ticker = document.getElementById("ticker").value.trim().toUpperCase();
-      const amount = parseFloat(document.getElementById("amount").value);
-      const messageEl = document.getElementById("message");
+  document.getElementById("cryptoForm").addEventListener("submit", async function(e) {
+    e.preventDefault();
 
-      const token = localStorage.getItem("token");
-      if (!token) {
-        messageEl.textContent = "Vous n'êtes pas authentifié.";
-        messageEl.className = "message error";
-        return;
-      }
+    const ticker = document.getElementById("ticker").value.trim().toUpperCase();
+    const amount = parseFloat(document.getElementById("amount").value);
+    const messageEl = document.getElementById("message");
 
-      try {
-        const response = await fetch(API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ ticker, amount })
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          messageEl.textContent = "Cryptomonnaie ajoutée avec succès !";
-          messageEl.className = "message success";
-          document.getElementById("cryptoForm").reset();
-          fetchPortfolio();
-        } else {
-          messageEl.textContent = data.message || "Erreur lors de l'ajout.";
-          messageEl.className = "message error";
-        }
-      } catch (err) {
-        messageEl.textContent = "Erreur réseau : " + err.message;
-        messageEl.className = "message error";
-      }
-    });
-
-    async function fetchPortfolio() {
-      const token = localStorage.getItem("token");
-      if (!token) return;
-
-      try {
-        const res = await fetch(API_URL, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        const data = await res.json();
-        if (res.ok) {
-          renderPortfolio(data.portfolio);
-        } else {
-          document.getElementById("message").textContent = data.message || "Erreur";
-        }
-      } catch (err) {
-        document.getElementById("message").textContent = "Erreur réseau";
-      }
-    }
-
-    function renderPortfolio(portfolio) {
-      const table = document.getElementById("portfolioTable");
-      const totalSum = document.getElementById("totalSum");
-      table.innerHTML = "";
-      let sum = 0;
-
-      // Fusionner les cryptos par ticker
-      const merged = {};
-      portfolio.forEach(item => {
-        const key = item.ticker.toUpperCase();
-        if (!merged[key]) {
-          merged[key] = { amount: 0, total: 0, price: item.price, ticker: key };
-        }
-        merged[key].amount += item.amount;
-        merged[key].total += item.total || (item.amount * item.price);
+    try {
+      const res = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ ticker, amount })
       });
 
-      Object.values(merged).forEach(item => {
-        const tr = document.createElement("tr");
-        sum += item.total;
+      const data = await res.json();
+      if (res.ok) {
+        messageEl.textContent = "Crypto ajoutée.";
+        messageEl.className = "text-success";
+        document.getElementById("cryptoForm").reset();
+        fetchPortfolio();
+      } else {
+        messageEl.textContent = data.message || "Erreur.";
+        messageEl.className = "text-danger";
+      }
+    } catch {
+      messageEl.textContent = "Erreur réseau.";
+      messageEl.className = "text-danger";
+    }
+  });
 
-        tr.innerHTML = `
+  async function fetchPortfolio() {
+    const res = await fetch(API_URL, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    const data = await res.json();
+    if (res.ok) renderPortfolio(data.portfolio);
+  }
+
+  async function modifyCrypto(ticker, amount) {
+    await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ ticker, amount })
+    });
+    fetchPortfolio();
+  }
+
+  async function deleteCrypto(ticker) {
+    if (!confirm(`Supprimer toutes les entrées de ${ticker} ?`)) return;
+    await fetch(`${API_URL}/${ticker}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    fetchPortfolio();
+  }
+
+  function renderPortfolio(portfolio) {
+    const table = document.getElementById("portfolioTable");
+    const totalSum = document.getElementById("totalSum");
+    table.innerHTML = "";
+
+    let merged = {};
+    let total = 0;
+
+    portfolio.forEach(item => {
+      const key = item.ticker.toUpperCase();
+      if (!merged[key]) {
+        merged[key] = { ticker: key, amount: 0, total: 0, price: item.price };
+      }
+      merged[key].amount += item.amount;
+      merged[key].total += item.total;
+    });
+
+    const chartLabels = [];
+    const chartData = [];
+
+    Object.values(merged).forEach(item => {
+      total += item.total;
+      chartLabels.push(item.ticker);
+      chartData.push(item.total);
+
+      table.innerHTML += `
+        <tr>
           <td>${item.ticker}</td>
           <td>${item.amount.toFixed(6)}</td>
           <td>$${item.price.toFixed(2)}</td>
           <td>$${item.total.toFixed(2)}</td>
-          <td><button onclick="modifyCrypto('${item.ticker}')">Modifier</button></td>
-        `;
-        table.appendChild(tr);
-      });
+          <td>
+            <button class="btn btn-sm btn-success me-1" onclick="modifyCrypto('${item.ticker}', 1)">+ Ajouter</button>
+            <button class="btn btn-sm btn-warning me-1" onclick="modifyCrypto('${item.ticker}', -1)">- Retirer</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteCrypto('${item.ticker}')">🗑 Supprimer</button>
+          </td>
+        </tr>
+      `;
+    });
 
-      totalSum.textContent = `Total du portefeuille : $${sum.toFixed(2)}`;
-    }
+    totalSum.textContent = `Total du portefeuille : $${total.toFixed(2)}`;
+    updateChart(chartLabels, chartData);
+  }
 
-    async function modifyCrypto(ticker) {
-      const token = localStorage.getItem("token");
-      const action = prompt(`Souhaitez-vous AJOUTER ou RETIRER une quantité pour ${ticker}? (ajouter / retirer)`);
-      if (!action || !["ajouter", "retirer"].includes(action.toLowerCase())) return;
-
-      const input = prompt("Indiquez la quantité :");
-      const amount = parseFloat(input);
-      if (isNaN(amount) || amount <= 0) return alert("Quantité invalide.");
-
-      const finalAmount = action.toLowerCase() === "retirer" ? -amount : amount;
-
-      try {
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ ticker, amount: finalAmount })
-        });
-
-        const data = await res.json();
-        if (res.ok) {
-          fetchPortfolio();
-          document.getElementById("message").textContent = "Mise à jour réussie.";
-          document.getElementById("message").className = "message success";
-        } else {
-          document.getElementById("message").textContent = data.message || "Erreur lors de la modification.";
-          document.getElementById("message").className = "message error";
+  let pieChart;
+  function updateChart(labels, data) {
+    const ctx = document.getElementById("portfolioChart").getContext("2d");
+    if (pieChart) pieChart.destroy();
+    pieChart = new Chart(ctx, {
+      type: "pie",
+      data: {
+        labels,
+        datasets: [{
+          label: "Répartition portefeuille",
+          data,
+          backgroundColor: ["#2196f3", "#4caf50", "#ff9800", "#f44336", "#9c27b0", "#00bcd4", "#ffc107"]
+        }]
+      },
+      options: {
+        plugins: {
+          legend: { labels: { color: "white" } }
         }
-      } catch (err) {
-        document.getElementById("message").textContent = "Erreur réseau.";
-        document.getElementById("message").className = "message error";
       }
-    }
+    });
+  }
 
-    window.onload = fetchPortfolio;
-  </script>
+  window.onload = fetchPortfolio;
+</script>
+
 </body>
 </html>
