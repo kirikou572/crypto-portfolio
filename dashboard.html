@@ -56,6 +56,22 @@
     .error {
       color: #f44336;
     }
+
+    table {
+      margin-top: 2rem;
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #444;
+    }
+
+    th {
+      background-color: #1e1e1e;
+    }
   </style>
 </head>
 <body>
@@ -69,6 +85,19 @@
   </form>
 
   <div class="message" id="message"></div>
+
+  <h2>Votre portefeuille</h2>
+  <table id="portfolioTable" border="1" cellspacing="0" cellpadding="8">
+    <thead>
+      <tr>
+        <th>Ticker</th>
+        <th>Quantité</th>
+        <th>Prix (€)</th>
+        <th>Total (€)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
   <button class="logout" onclick="logout()">Se déconnecter</button>
 
@@ -102,21 +131,13 @@
           body: JSON.stringify({ ticker, amount })
         });
 
-        const contentType = response.headers.get("content-type");
-        let data;
-
-        if (contentType && contentType.includes("application/json")) {
-        data = await response.json();
-        } else {
-          const rawText = await response.text();
-          throw new Error("La réponse n'est pas du JSON :\n" + rawText);
-        }
-        ;
+        const data = await response.json();
 
         if (response.ok) {
           messageEl.textContent = "Cryptomonnaie ajoutée avec succès !";
           messageEl.className = "message";
           document.getElementById("cryptoForm").reset();
+          fetchPortfolio(); // Met à jour l'affichage
         } else {
           messageEl.textContent = data.message || "Erreur lors de l'ajout.";
           messageEl.className = "message error";
@@ -126,6 +147,54 @@
         messageEl.className = "message error";
       }
     });
+
+    async function fetchPortfolio() {
+      const token = localStorage.getItem("token");
+      const messageEl = document.getElementById("message");
+      const tableBody = document.querySelector("#portfolioTable tbody");
+
+      if (!token) {
+        messageEl.textContent = "Vous n'êtes pas authentifié.";
+        messageEl.className = "message error";
+        return;
+      }
+
+      try {
+        const res = await fetch("https://crypto-portfolio-production-b673.up.railway.app/portfolio", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          messageEl.textContent = data.message || "Erreur lors du chargement du portefeuille.";
+          messageEl.className = "message error";
+          return;
+        }
+
+        tableBody.innerHTML = "";
+
+        data.portfolio.forEach(item => {
+          const row = document.createElement("tr");
+
+          row.innerHTML = `
+            <td>${item.ticker}</td>
+            <td>${item.amount}</td>
+            <td>${item.price.toFixed(2)}</td>
+            <td>${item.total.toFixed(2)}</td>
+          `;
+
+          tableBody.appendChild(row);
+        });
+      } catch (err) {
+        messageEl.textContent = "Erreur réseau : " + err.message;
+        messageEl.className = "message error";
+      }
+    }
+
+    fetchPortfolio(); // Chargement initial
   </script>
 </body>
 </html>
