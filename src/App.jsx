@@ -1,84 +1,73 @@
 import React, { useEffect, useState } from "react";
-import PortfolioTable from "./components/PortfolioTable";
 import AddCryptoForm from "./components/AddCryptoForm";
-import axios from "axios";
+import PortfolioTable from "./components/PortfolioTable";
+import CurrencyToggle from "./components/CurrencyToggle";
+import PortfolioChart from "./components/PortfolioChart";
 
 function App() {
   const [portfolio, setPortfolio] = useState([]);
-  const [currency, setCurrency] = useState("EUR"); // EUR ou USD
-  const [exchangeRate, setExchangeRate] = useState(1.08); // 1 EUR = 1.08 USD par défaut
+  const [currency, setCurrency] = useState("€");
+  const [rate, setRate] = useState(1);
 
-  const token = "demoUser"; // auth simulée
+  const token = "demo"; // Simulé
 
-  const fetchPortfolio = async () => {
-    try {
-      const res = await axios.get("http://localhost:3000/portfolio", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setPortfolio(res.data.portfolio);
-    } catch (err) {
-      console.error("Erreur chargement portefeuille :", err);
+  useEffect(() => {
+    fetch("/portfolio", {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => setPortfolio(data.portfolio || []));
+  }, []);
+
+  const addCrypto = async (ticker, amount) => {
+    const res = await fetch("/portfolio", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ ticker, amount }),
+    });
+
+    if (res.ok) {
+      const { data } = await res.json();
+      setPortfolio((prev) => [...prev, data]);
     }
   };
 
-  const handleAddCrypto = async (ticker, amount) => {
-    try {
-      await axios.post(
-        "http://localhost:3000/portfolio",
-        { ticker, amount },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      fetchPortfolio(); // refresh
-    } catch (err) {
-      console.error("Erreur ajout crypto :", err);
-    }
-  };
+  const deleteCrypto = async (ticker) => {
+    await fetch(`/portfolio/${ticker}`, {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
 
-  const handleDeleteCrypto = async (ticker) => {
-    try {
-      await axios.delete(`http://localhost:3000/portfolio/${ticker}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      fetchPortfolio();
-    } catch (err) {
-      console.error("Erreur suppression crypto :", err);
-    }
+    setPortfolio((prev) => prev.filter((c) => c.ticker !== ticker));
   };
 
   const toggleCurrency = () => {
-    setCurrency((prev) => (prev === "EUR" ? "USD" : "EUR"));
+    if (currency === "€") {
+      setCurrency("$");
+      setRate(1.1); // Exemple taux fictif
+    } else {
+      setCurrency("€");
+      setRate(1);
+    }
   };
-
-  const convertPrice = (value) => {
-    return currency === "USD" ? value * exchangeRate : value;
-  };
-
-  useEffect(() => {
-    fetchPortfolio();
-  }, []);
 
   return (
-    <div className="p-4 font-sans max-w-4xl mx-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">Mon Portefeuille Crypto</h1>
-        <button
-          onClick={toggleCurrency}
-          className="border px-3 py-1 text-sm rounded hover:bg-gray-100"
-        >
-          Afficher en {currency === "EUR" ? "USD ($)" : "EUR (€)"}
-        </button>
-      </div>
-
-      <AddCryptoForm onAddCrypto={handleAddCrypto} />
-
+    <div className="p-6 max-w-4xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">Portefeuille Crypto</h1>
+      <CurrencyToggle currency={currency} onToggle={toggleCurrency} />
+      <AddCryptoForm onAddCrypto={addCrypto} />
       <PortfolioTable
         portfolio={portfolio}
-        onDeleteCrypto={handleDeleteCrypto}
-        convertPrice={convertPrice}
+        onDelete={deleteCrypto}
         currency={currency}
+        rate={rate}
       />
+      <PortfolioChart data={portfolio.map((c) => ({ ...c, total: c.total * rate }))} />
     </div>
   );
 }
