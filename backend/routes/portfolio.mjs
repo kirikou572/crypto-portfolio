@@ -1,10 +1,8 @@
 import express from 'express';
 import { getCryptoPrice } from '../services/coinmarketcap.mjs';
+import Portfolio from '../models/Portfolio.mjs'; // <-- modèle Mongoose
 
 const router = express.Router();
-
-// Stockage temporaire en mémoire
-const userPortfolios = {};
 
 // Middleware d'authentification simulée
 function fakeAuth(req, res, next) {
@@ -19,13 +17,18 @@ function fakeAuth(req, res, next) {
 
 router.use(fakeAuth);
 
-// GET /portfolio — récupère les cryptos de l'utilisateur
-router.get('/', (req, res) => {
-  const portfolio = userPortfolios[req.user.id] || [];
-  res.json({ portfolio });
+// GET /portfolio — récupère les cryptos de l'utilisateur depuis MongoDB
+router.get('/', async (req, res) => {
+  try {
+    const portfolio = await Portfolio.find({ userId: req.user.id });
+    res.json({ portfolio });
+  } catch (err) {
+    console.error("Erreur lecture portefeuille :", err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
 });
 
-// POST /portfolio — ajoute une crypto avec son prix
+// POST /portfolio — ajoute une crypto avec son prix dans MongoDB
 router.post('/', async (req, res) => {
   const { ticker, amount } = req.body;
 
@@ -40,27 +43,24 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ message: "Cryptomonnaie non trouvée" });
     }
 
-    const newCrypto = {
+    const newCrypto = new Portfolio({
+      userId: req.user.id,
       ticker: ticker.toUpperCase(),
       amount,
       price,
       total: amount * price
-    };
+    });
 
-    if (!userPortfolios[req.user.id]) {
-      userPortfolios[req.user.id] = [];
-    }
-
-    userPortfolios[req.user.id].push(newCrypto);
+    await newCrypto.save();
 
     res.status(201).json({
       message: 'Crypto ajoutée avec succès',
       data: newCrypto
     });
   } catch (err) {
-    console.error(err);
+    console.error("Erreur ajout crypto :", err);
     res.status(500).json({
-      message: 'Erreur lors de l’appel à CoinMarketCap',
+      message: 'Erreur lors de l’appel à CoinMarketCap ou MongoDB',
       error: err.message
     });
   }
