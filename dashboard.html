@@ -16,10 +16,41 @@
       color: #00bcd4;
     }
 
+    form {
+      margin-top: 1rem;
+      background: #1e1e1e;
+      padding: 1rem;
+      border-radius: 8px;
+      width: 300px;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      border: none;
+      border-radius: 4px;
+    }
+
+    button {
+      padding: 0.5rem;
+      background: #00bcd4;
+      border: none;
+      color: white;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button.logout {
+      margin-top: 2rem;
+      background: #f44336;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 1rem;
+      margin-top: 2rem;
     }
 
     th, td {
@@ -38,21 +69,6 @@
       color: #00e676;
     }
 
-    button {
-      padding: 0.3rem 0.5rem;
-      background: #00bcd4;
-      border: none;
-      color: white;
-      font-weight: bold;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-
-    .logout {
-      margin-top: 2rem;
-      background: #f44336;
-    }
-
     .message {
       margin-top: 1rem;
     }
@@ -69,6 +85,15 @@
 <body>
   <h1>Bienvenue sur votre dashboard</h1>
 
+  <h2>Ajouter une cryptomonnaie</h2>
+  <form id="cryptoForm">
+    <input type="text" id="ticker" placeholder="Ex: BTC" required />
+    <input type="number" step="any" id="amount" placeholder="Quantité" required />
+    <button type="submit">Ajouter</button>
+  </form>
+
+  <div class="message" id="message"></div>
+
   <table>
     <thead>
       <tr>
@@ -84,8 +109,6 @@
 
   <div class="total-sum" id="totalSum">Total du portefeuille : $0.00</div>
 
-  <div class="message" id="message"></div>
-
   <button class="logout" onclick="logout()">Se déconnecter</button>
 
   <script>
@@ -95,6 +118,47 @@
       localStorage.removeItem("token");
       window.location.href = "index.html";
     }
+
+    document.getElementById("cryptoForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+
+      const ticker = document.getElementById("ticker").value.trim().toUpperCase();
+      const amount = parseFloat(document.getElementById("amount").value);
+      const messageEl = document.getElementById("message");
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        messageEl.textContent = "Vous n'êtes pas authentifié.";
+        messageEl.className = "message error";
+        return;
+      }
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ ticker, amount })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          messageEl.textContent = "Cryptomonnaie ajoutée avec succès !";
+          messageEl.className = "message success";
+          document.getElementById("cryptoForm").reset();
+          fetchPortfolio();
+        } else {
+          messageEl.textContent = data.message || "Erreur lors de l'ajout.";
+          messageEl.className = "message error";
+        }
+      } catch (err) {
+        messageEl.textContent = "Erreur réseau : " + err.message;
+        messageEl.className = "message error";
+      }
+    });
 
     async function fetchPortfolio() {
       const token = localStorage.getItem("token");
@@ -124,17 +188,26 @@
       table.innerHTML = "";
       let sum = 0;
 
+      // Fusionner les cryptos par ticker
+      const merged = {};
       portfolio.forEach(item => {
-        const tr = document.createElement("tr");
+        const key = item.ticker.toUpperCase();
+        if (!merged[key]) {
+          merged[key] = { amount: 0, total: 0, price: item.price, ticker: key };
+        }
+        merged[key].amount += item.amount;
+        merged[key].total += item.total || (item.amount * item.price);
+      });
 
-        const total = item.total || item.amount * item.price;
-        sum += total;
+      Object.values(merged).forEach(item => {
+        const tr = document.createElement("tr");
+        sum += item.total;
 
         tr.innerHTML = `
           <td>${item.ticker}</td>
-          <td>${item.amount}</td>
+          <td>${item.amount.toFixed(6)}</td>
           <td>$${item.price.toFixed(2)}</td>
-          <td>$${total.toFixed(2)}</td>
+          <td>$${item.total.toFixed(2)}</td>
           <td><button onclick="modifyCrypto('${item.ticker}')">Modifier</button></td>
         `;
         table.appendChild(tr);
