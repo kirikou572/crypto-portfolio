@@ -1,26 +1,18 @@
+
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Crypto Portfolio - Connexion</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Crypto Portfolio</title>
 </head>
 <body>
   <h1>Crypto Portfolio</h1>
-  <h2>Connexion</h2>
-  <form id="login-form">
-    <input type="email" id="login-email" placeholder="Email" required />
-    <input type="password" id="login-password" placeholder="Mot de passe" required />
-    <button type="submit">Se connecter</button>
-  </form>
-
-  <h2>Inscription</h2>
-  <form id="signup-form">
-    <input type="email" id="signup-email" placeholder="Email" required />
-    <input type="password" id="signup-password" placeholder="Mot de passe" required />
-    <button type="submit">Créer un compte</button>
-  </form>
-
+  <div>
+    <input type="email" id="email" placeholder="Email" />
+    <input type="password" id="password" placeholder="Password" />
+    <button onclick="login()">Login</button>
+  </div>
   <script src="script.js"></script>
 </body>
 </html>
