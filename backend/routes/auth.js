@@ -1,28 +1,52 @@
-import express from 'express';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
+// auth.js
 
-const router = express.Router();
+const API_BASE_URL = "https://crypto-portfolio-production-b673.up.railway.app";
 
-// Connexion utilisateur
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+async function login(email, password) {
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Utilisateur introuvable' });
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: 'Mot de passe incorrect' });
-
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-      expiresIn: '1d'
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
     });
 
-    res.json({ token });
-  } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur' });
-  }
-});
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Erreur lors de la connexion");
+    }
 
-export default router;
+    const data = await response.json();
+    // Traitement après connexion réussie, par ex. stocker token
+    console.log("Connexion réussie :", data);
+    return data;
+  } catch (error) {
+    console.error("Erreur login:", error.message);
+    throw error;
+  }
+}
+
+async function signup(email, password) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || "Erreur lors de l'inscription");
+    }
+
+    const data = await response.json();
+    console.log("Inscription réussie :", data);
+    return data;
+  } catch (error) {
+    console.error("Erreur signup:", error.message);
+    throw error;
+  }
+}
