@@ -1,38 +1,59 @@
-// server.mjs
+import express from "express";
+import CoinMarketCapAPI from "../services/coinmarketcap.js";
+import Portfolio from "../models/Portfolio.mjs"; // <-- Modèle MongoDB
 
-import dotenv from 'dotenv';
-dotenv.config();
+const router = express.Router();
+const coinMarketCap = new CoinMarketCapAPI();
 
-import express from 'express';
-import mongoose from 'mongoose';
-import path from 'path';
-import cors from 'cors';
-import { fileURLToPath } from 'url';
+router.post("/", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Token manquant" });
+  }
 
-import authRoutes from './routes/auth.js';
-import portfolioRoutes from './routes/portfolio.mjs';
+  const token = authHeader.split(" ")[1];
+  const userId = token; // En prod : décoder un vrai JWT
+  const { ticker, amount } = req.body;
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  if (!ticker || !amount) {
+    return res.status(400).json({ message: "Ticker ou quantité manquant" });
+  }
 
-// Connexion à MongoDB
-await mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
+  try {
+    const price = await coinMarketCap.getPrice(ticker);
+    const total = price * amount;
+
+    await Portfolio.create({
+      userId,
+      ticker,
+      amount,
+      price,
+      total,
+    });
+
+    res.json({ message: "Crypto ajoutée avec succès" });
+  } catch (err) {
+    console.error("Erreur ajout portefeuille :", err);
+    res.status(500).json({ message: "Erreur serveur ou ticker invalide" });
+  }
 });
 
-const app = express();
+router.get("/", async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ message: "Token manquant" });
+  }
 
-// Middleware CORS : autoriser uniquement le frontend GitHub Pages
-app.use(cors({
-  origin: 'https://kirikou572.github.io'
-}));
+  const token = authHeader.split(" ")[1];
+  const userId = token;
 
-app.use(express.json());
-app.use('/auth', authRoutes);
-app.use('/portfolio', portfolioRoutes);
+  try {
+    const portfolio = await Portfolio.find({ userId });
+    res.json({ portfolio });
+  } catch (err) {
+    console.error("Erreur lecture portefeuille :", err);
+    res.status(500).json({ message: "Erreur serveur" });
+  }
+});
 
-// Sert les fichiers statiques (si tu as un frontend dans le dossier ../frontend)
-app.use(express.static(path.join(__dirname, '../frontend')));
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Serveur sur http://localhost:${PORT}`));
+export default router;
