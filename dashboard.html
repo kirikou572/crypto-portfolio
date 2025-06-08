@@ -102,7 +102,16 @@
           body: JSON.stringify({ ticker, amount })
         });
 
-        const data = await response.json();
+        const contentType = response.headers.get("content-type");
+        let data;
+
+        if (contentType && contentType.includes("application/json")) {
+        data = await response.json();
+        } else {
+          const rawText = await response.text();
+          throw new Error("La réponse n'est pas du JSON :\n" + rawText);
+        }
+        ;
 
         if (response.ok) {
           messageEl.textContent = "Cryptomonnaie ajoutée avec succès !";
