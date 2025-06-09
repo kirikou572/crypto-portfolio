@@ -2,7 +2,9 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cors from "cors";
-import portfolioRoutes from "./routes/portfolio.mjs"; // <-- ta route modifiée
+
+import portfolioRoutes from "./routes/portfolio.mjs";
+import authRoutes from "./routes/auth.mjs"; // <-- Ajouté
 
 dotenv.config();
 
@@ -23,6 +25,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 // Routes
 app.use("/portfolio", portfolioRoutes);
+app.use("/auth", authRoutes); // <-- Ajouté
 
 // Route de test
 app.get("/", (req, res) => {
