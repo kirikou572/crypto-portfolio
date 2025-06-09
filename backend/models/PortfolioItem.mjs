@@ -1,15 +1,15 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const portfolioItemSchema = new mongoose.Schema({
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+const cryptoSchema = new mongoose.Schema({
   ticker: { type: String, required: true, uppercase: true, trim: true },
   amount: { type: Number, required: true },
-  price: { type: Number, required: true }, // Prix unitaire en EUR au moment de l'ajout
-  total: { type: Number, required: true }  // amount * price
-}, {
-  timestamps: true
 });
 
-const PortfolioItem = mongoose.model('PortfolioItem', portfolioItemSchema);
+const portfolioSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+  cryptos: [cryptoSchema],
+}, { timestamps: true });
 
-export default PortfolioItem;
+const Portfolio = mongoose.model("Portfolio", portfolioSchema);
+
+export default Portfolio;
