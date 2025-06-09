@@ -29,25 +29,32 @@ async function getCryptoPrice(ticker) {
 
 // GET portefeuille
 router.get("/", authenticateToken, async (req, res) => {
+  const currency = req.query.currency || 'eur';
+
   try {
     const user = await User.findById(req.user.id);
     if (!user) return res.status(404).json({ message: "Utilisateur introuvable" });
 
-    const portfolioWithPrices = await Promise.all(user.portfolio.map(async (entry) => {
-      const price = await getCryptoPrice(entry.ticker);
+    const conversionRate = currency === 'eur' ? 1 : await getConversionRate("eur", currency);
+
+    const portfolio = await Promise.all(user.portfolio.map(async (entry) => {
+      const priceEUR = await getCryptoPrice(entry.ticker);
+      const price = priceEUR * conversionRate;
       return {
         ticker: entry.ticker,
         amount: entry.amount,
-        price,
-        total: entry.amount * price,
+        price: price,
+        total: price * entry.amount
       };
     }));
 
-    res.json({ portfolio: portfolioWithPrices });
+    res.json({ portfolio, currency });
   } catch (err) {
     res.status(500).json({ message: "Erreur serveur", error: err.message });
   }
 });
+
+
 
 // POST ajouter crypto
 router.post("/", authenticateToken, async (req, res) => {
