@@ -1,7 +1,7 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import PortfolioItem from '../models/PortfolioItem.js'; // modèle mongoose, à adapter si besoin
-import authMiddleware from '../middleware/auth.js'; // middleware d’authentification JWT
+import authMiddleware from '../middleware/auth.mjs'; // middleware d’authentification JWT
 
 const router = express.Router();
 const CMC_API_KEY = process.env.CMC_API_KEY;
