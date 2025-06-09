@@ -1,6 +1,6 @@
 import express from 'express';
 import fetch from 'node-fetch';
-import PortfolioItem from '../models/PortfolioItem.js'; // modèle mongoose, à adapter si besoin
+import PortfolioItem from '../models/PortfolioItem.mjs'; // modèle mongoose, à adapter si besoin
 import authMiddleware from '../middleware/auth.mjs'; // middleware d’authentification JWT
 
 const router = express.Router();
