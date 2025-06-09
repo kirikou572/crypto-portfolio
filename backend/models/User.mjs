@@ -1,14 +1,15 @@
 import mongoose from "mongoose";
 
+const portfolioItemSchema = new mongoose.Schema({
+  ticker: String,
+  amount: Number,
+  price: Number
+});
+
 const userSchema = new mongoose.Schema({
-  email: String,
+  email: { type: String, unique: true },
   password: String,
-  portfolio: [
-    {
-      ticker: String,
-      amount: Number,
-    },
-  ],
+  portfolio: [portfolioItemSchema]
 });
 
 export default mongoose.model("User", userSchema);
