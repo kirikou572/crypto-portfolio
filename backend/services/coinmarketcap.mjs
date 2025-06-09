@@ -1,26 +1,28 @@
-import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-dotenv.config();
+import fetch from "node-fetch";
 
-const API_KEY = process.env.CMC_API_KEY;
-const BASE_URL = 'https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest';
+const CMC_API_KEY = process.env.CMC_API_KEY;
 
-export async function getCryptoPrice(ticker) {
-  const url = `${BASE_URL}?symbol=${ticker}&convert=EUR`;
+async function getCryptoPrice(ticker) {
+  const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${ticker}&convert=EUR`;
 
-  const res = await fetch(url, {
+  const response = await fetch(url, {
     headers: {
-      'X-CMC_PRO_API_KEY': API_KEY,
-      'Accept': 'application/json'
-    }
+      "X-CMC_PRO_API_KEY": CMC_API_KEY,
+      Accept: "application/json",
+    },
   });
 
-  if (!res.ok) {
-    const errText = await res.text();
-    throw new Error(`CoinMarketCap API Error: ${errText}`);
+  if (!response.ok) {
+    throw new Error(`Erreur API CoinMarketCap: ${response.status}`);
   }
 
-  const data = await res.json();
-  const price = data.data[ticker]?.quote?.EUR?.price;
-  return price;
+  const data = await response.json();
+
+  if (!data.data || !data.data[ticker] || !data.data[ticker].quote.EUR.price) {
+    throw new Error("Prix introuvable");
+  }
+
+  return data.data[ticker].quote.EUR.price;
 }
+
+export default getCryptoPrice;
