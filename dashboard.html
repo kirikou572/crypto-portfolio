@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard - Crypto Portfolio</title>
+  <style>
+    body {
+      background: #121212;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+    }
+
+    h1, h2 {
+      color: #00bcd4;
+    }
+
+    form {
+      margin-top: 2rem;
+      background: #1e1e1e;
+      padding: 1rem;
+      border-radius: 8px;
+      width: 300px;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      border: none;
+      border-radius: 4px;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.5rem;
+      background: #00bcd4;
+      border: none;
+      color: white;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button.logout {
+      margin-top: 2rem;
+      background: #f44336;
+    }
+
+    .message {
+      margin-top: 1rem;
+      color: #4caf50;
+    }
+
+    .error {
+      color: #f44336;
+    }
+
+    table {
+      margin-top: 2rem;
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #444;
+    }
+
+    th {
+      background-color: #1e1e1e;
+    }
+  </style>
+</head>
+<body>
+  <h1>Bienvenue sur votre dashboard</h1>
+
+  <h2>Ajouter une cryptomonnaie</h2>
+  <form id="cryptoForm">
+    <input type="text" id="ticker" placeholder="Ex: BTC" required />
+    <input type="number" step="any" id="amount" placeholder="Quantité" required />
+    <button type="submit">Ajouter</button>
+  </form>
+
+  <div class="message" id="message"></div>
+
+  <h2>Votre portefeuille</h2>
+  <table id="portfolioTable" border="1" cellspacing="0" cellpadding="8">
+    <thead>
+      <tr>
+        <th>Ticker</th>
+        <th>Quantité</th>
+        <th>Prix (€)</th>
+        <th>Total (€)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button class="logout" onclick="logout()">Se déconnecter</button>
+
+  <script>
+    function logout() {
+      localStorage.removeItem("token");
+      window.location.href = "index.html";
+    }
+
+    document.getElementById("cryptoForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+
+      const ticker = document.getElementById("ticker").value.trim().toUpperCase();
+      const amount = parseFloat(document.getElementById("amount").value);
+      const messageEl = document.getElementById("message");
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        messageEl.textContent = "Vous n'êtes pas authentifié.";
+        messageEl.className = "message error";
+        return;
+      }
+
+      try {
+        const response = await fetch("https://crypto-portfolio-production-b673.up.railway.app/portfolio", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ ticker, amount })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          messageEl.textContent = "Cryptomonnaie ajoutée avec succès !";
+          messageEl.className = "message";
+          document.getElementById("cryptoForm").reset();
+          fetchPortfolio(); // Met à jour l'affichage
+        } else {
+          messageEl.textContent = data.message || "Erreur lors de l'ajout.";
+          messageEl.className = "message error";
+        }
+      } catch (err) {
+        messageEl.textContent = "Erreur réseau : " + err.message;
+        messageEl.className = "message error";
+      }
+    });
+
+    async function fetchPortfolio() {
+      const token = localStorage.getItem("token");
+      const messageEl = document.getElementById("message");
+      const tableBody = document.querySelector("#portfolioTable tbody");
+
+      if (!token) {
+        messageEl.textContent = "Vous n'êtes pas authentifié.";
+        messageEl.className = "message error";
+        return;
+      }
+
+      try {
+        const res = await fetch("https://crypto-portfolio-production-b673.up.railway.app/portfolio", {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          messageEl.textContent = data.message || "Erreur lors du chargement du portefeuille.";
+          messageEl.className = "message error";
+          return;
+        }
+
+        tableBody.innerHTML = "";
+
+        data.portfolio.forEach(item => {
+          const row = document.createElement("tr");
+
+          row.innerHTML = `
+            <td>${item.ticker}</td>
+            <td>${item.amount}</td>
+            <td>${item.price.toFixed(2)}</td>
+            <td>${item.total.toFixed(2)}</td>
+          `;
+
+          tableBody.appendChild(row);
+        });
+      } catch (err) {
+        messageEl.textContent = "Erreur réseau : " + err.message;
+        messageEl.className = "message error";
+      }
+    }
+
+    fetchPortfolio(); // Chargement initial
+  </script>
+</body>
+</html>
