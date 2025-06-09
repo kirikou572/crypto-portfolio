@@ -4,11 +4,12 @@ import authMiddleware from "../middleware/auth.mjs";
 import fetch from "node-fetch";
 
 const router = express.Router();
-const CMC_API_KEY = process.env.CMC_API_KEY;
-
-if (!CMC_API_KEY) {
-  console.error("❌ Clé API CoinMarketCap non définie dans .env");
-}
+function getCryptoPrice(ticker) {
+  const CMC_API_KEY = process.env.CMC_API_KEY;
+  if (!CMC_API_KEY) {
+    console.error("❌ Clé API CoinMarketCap non définie dans .env");
+    throw new Error("Clé API non définie");
+  }
 
 async function getCryptoPrice(ticker) {
   const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${ticker}&convert=EUR`;
