@@ -2,8 +2,8 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Crypto Portfolio - Connexion / Inscription</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connexion / Inscription - Crypto Portfolio</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -16,46 +16,42 @@
       height: 100vh;
       margin: 0;
     }
-
-    form {
+    .container {
       background: #1e1e1e;
       padding: 2rem;
       border-radius: 8px;
       box-shadow: 0 0 10px rgba(0,0,0,0.5);
-      width: 300px;
-      display: none;
+      width: 320px;
+      text-align: center;
     }
-
-    form.active {
-      display: block;
-    }
-
-    input, button {
+    input {
       width: 100%;
       padding: 0.5rem;
       margin: 0.5rem 0;
       border: none;
       border-radius: 4px;
     }
-
     button {
+      width: 100%;
+      padding: 0.5rem;
       background: #00bcd4;
+      border: none;
       color: white;
       font-weight: bold;
+      border-radius: 4px;
       cursor: pointer;
+      margin-top: 1rem;
     }
-
     button:hover {
       background: #0097a7;
     }
-
-    .switch-link {
-      margin-top: 1rem;
-      cursor: pointer;
+    .toggle-link {
       color: #00bcd4;
+      cursor: pointer;
+      margin-top: 1rem;
+      display: block;
       text-decoration: underline;
     }
-
     .message {
       margin-top: 1rem;
       color: #f44336;
@@ -63,92 +59,83 @@
   </style>
 </head>
 <body>
-  <h1>Crypto Portfolio</h1>
-
-  <form id="loginForm" class="active">
-    <h2>Connexion</h2>
-    <input type="email" id="loginEmail" placeholder="Email" required />
-    <input type="password" id="loginPassword" placeholder="Mot de passe" required />
-    <button type="submit">Se connecter</button>
-    <div class="switch-link" onclick="toggleForms()">Pas encore de compte ? Inscris-toi</div>
-  </form>
-
-  <form id="signupForm">
-    <h2>Inscription</h2>
-    <input type="email" id="signupEmail" placeholder="Email" required />
-    <input type="password" id="signupPassword" placeholder="Mot de passe" required />
-    <button type="submit">S’inscrire</button>
-    <div class="switch-link" onclick="toggleForms()">Déjà un compte ? Connecte-toi</div>
-  </form>
-
-  <div class="message" id="message"></div>
+  <div class="container">
+    <h1 id="form-title">Connexion</h1>
+    <form id="authForm">
+      <input type="email" id="email" placeholder="Email" required />
+      <input type="password" id="password" placeholder="Mot de passe" required />
+      <button type="submit" id="submitBtn">Se connecter</button>
+    </form>
+    <span class="toggle-link" id="toggleLink">Pas encore inscrit ? Créez un compte</span>
+    <div class="message" id="message"></div>
+  </div>
 
   <script>
-    const backendUrl = "https://crypto-portfolio-production-b673.up.railway.app";
-    const loginForm = document.getElementById("loginForm");
-    const signupForm = document.getElementById("signupForm");
-    const messageDiv = document.getElementById("message");
+    const backendUrl = 'https://crypto-portfolio-production-b673.up.railway.app';
 
-    function toggleForms() {
-      loginForm.classList.toggle("active");
-      signupForm.classList.toggle("active");
-      messageDiv.textContent = "";
-    }
+    const formTitle = document.getElementById('form-title');
+    const authForm = document.getElementById('authForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const toggleLink = document.getElementById('toggleLink');
+    const messageDiv = document.getElementById('message');
 
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = document.getElementById("loginEmail").value.trim();
-      const password = document.getElementById("loginPassword").value;
+    let isLogin = true; // true = login form, false = signup form
 
-      try {
-        const res = await fetch(`${backendUrl}/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email, password })
-        });
+    toggleLink.addEventListener('click', () => {
+      isLogin = !isLogin;
+      messageDiv.textContent = '';
 
-        const data = await res.json();
-
-        if (res.ok) {
-          localStorage.setItem("token", data.token);
-          messageDiv.style.color = "lightgreen";
-          messageDiv.textContent = "Connexion réussie !";
-          window.location.href = "dashboard.html";
-        } else {
-          messageDiv.style.color = "#f44336";
-          messageDiv.textContent = data.message || "Erreur de connexion.";
-        }
-      } catch (err) {
-        messageDiv.style.color = "#f44336";
-        messageDiv.textContent = "Erreur réseau : " + err.message;
+      if (isLogin) {
+        formTitle.textContent = 'Connexion';
+        submitBtn.textContent = 'Se connecter';
+        toggleLink.textContent = "Pas encore inscrit ? Créez un compte";
+      } else {
+        formTitle.textContent = 'Inscription';
+        submitBtn.textContent = "S'inscrire";
+        toggleLink.textContent = 'Déjà un compte ? Connectez-vous';
       }
     });
 
-    signupForm.addEventListener("submit", async (e) => {
+    authForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById("signupEmail").value.trim();
-      const password = document.getElementById("signupPassword").value;
+      messageDiv.style.color = '#f44336';
+      messageDiv.textContent = '';
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value.trim();
+
+      if (!email || !password) {
+        messageDiv.textContent = 'Veuillez remplir tous les champs.';
+        return;
+      }
 
       try {
-        const res = await fetch(`${backendUrl}/auth/signup`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+        const url = isLogin ? `${backendUrl}/auth/login` : `${backendUrl}/auth/signup`;
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
         });
 
         const data = await res.json();
 
         if (res.ok) {
-          messageDiv.style.color = "lightgreen";
-          messageDiv.textContent = "Inscription réussie ! Vous pouvez vous connecter.";
-          toggleForms();
+          if (isLogin) {
+            // Sauvegarder token et rediriger vers dashboard
+            localStorage.setItem('token', data.token);
+            window.location.href = 'dashboard.html';
+          } else {
+            messageDiv.style.color = '#4caf50';
+            messageDiv.textContent = 'Inscription réussie ! Vous pouvez maintenant vous connecter.';
+            // Basculer vers connexion
+            toggleLink.click();
+            authForm.reset();
+          }
         } else {
-          messageDiv.style.color = "#f44336";
-          messageDiv.textContent = data.message || "Erreur d’inscription.";
+          messageDiv.textContent = data.message || 'Erreur lors de la requête.';
         }
-      } catch (err) {
-        messageDiv.style.color = "#f44336";
-        messageDiv.textContent = "Erreur réseau : " + err.message;
+      } catch (error) {
+        messageDiv.textContent = 'Erreur réseau : ' + error.message;
       }
     });
   </script>
