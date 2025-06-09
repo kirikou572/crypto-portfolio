@@ -1,5 +1,5 @@
 import express from "express";
-import Portfolio from "../models/Portfolio.mjs";
+import Portfolio from "../models/PortfolioItem.mjs";
 import authMiddleware from "../middleware/auth.mjs";
 import fetch from "node-fetch";
 
