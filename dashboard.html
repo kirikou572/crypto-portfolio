@@ -4,37 +4,92 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Dashboard - Crypto Portfolio</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { background: #121212; color: #fff; font-family: Arial, sans-serif; padding: 2rem; }
-    h1, h2 { color: #00bcd4; }
-    .controls { margin-bottom: 1rem; }
-    select, button { margin-right: 1rem; }
-    form, table, canvas, .message { margin-top: 1rem; }
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid #444; }
-    th { background-color: #1e1e1e; }
-    .message.error { color: #f44336; }
-    .message { color: #4caf50; }
-    button.logout { background: #f44336; color: #fff; }
+    body {
+      background: #121212;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+    }
+
+    h1, h2, h3 {
+      color: #00bcd4;
+    }
+
+    form {
+      margin-top: 2rem;
+      background: #1e1e1e;
+      padding: 1rem;
+      border-radius: 8px;
+      width: 300px;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      border: none;
+      border-radius: 4px;
+    }
+
+    button {
+      width: 100%;
+      padding: 0.5rem;
+      background: #00bcd4;
+      border: none;
+      color: white;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    button.logout {
+      margin-top: 2rem;
+      background: #f44336;
+    }
+
+    .message {
+      margin-top: 1rem;
+      color: #4caf50;
+    }
+
+    .error {
+      color: #f44336;
+    }
+
+    table {
+      margin-top: 2rem;
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid #444;
+    }
+
+    th {
+      background-color: #1e1e1e;
+    }
+
+    #currencyToggle {
+      margin-top: 1rem;
+      background-color: #555;
+      color: white;
+    }
+
+    h3 {
+      margin-top: 2rem;
+    }
   </style>
 </head>
 <body>
-  <h1>Dashboard Crypto Portfolio</h1>
+  <h1>Bienvenue sur votre dashboard</h1>
 
-  <div class="controls">
-    <label>Devise :
-      <select id="currencySelect">
-        <option value="EUR" selected>€</option>
-        <option value="USD">$</option>
-      </select>
-    </label>
-    <button class="logout" onclick="logout()">Se déconnecter</button>
-  </div>
-
-  <h2>Ajouter une crypto</h2>
+  <h2>Ajouter une cryptomonnaie</h2>
   <form id="cryptoForm">
-    <input type="text" id="ticker" placeholder="Ex : BTC" required />
+    <input type="text" id="ticker" placeholder="Ex: BTC" required />
     <input type="number" step="any" id="amount" placeholder="Quantité" required />
     <button type="submit">Ajouter</button>
   </form>
@@ -42,68 +97,48 @@
   <div class="message" id="message"></div>
 
   <h2>Votre portefeuille</h2>
-  <table id="portfolioTable">
+  <button id="currencyToggle">Changer la devise (€ / $)</button>
+
+  <table id="portfolioTable" border="1" cellspacing="0" cellpadding="8">
     <thead>
       <tr>
-        <th>Ticker</th><th>Quantité</th><th>Prix (<span id="currencyLabel">€</span>)</th><th>Total (<span id="currencyLabel2">€</span>)</th><th>Action</th>
+        <th>Ticker</th>
+        <th>Quantité</th>
+        <th>Prix (<span id="currencyLabel">€</span>)</th>
+        <th>Total (<span id="currencyLabelTotal">€</span>)</th>
       </tr>
     </thead>
-    <tbody><tr><td colspan="5">Chargement...</td></tr></tbody>
+    <tbody></tbody>
   </table>
 
-  <h2>Graphique</h2>
-  <canvas id="portfolioChart" width="400" height="200"></canvas>
+  <h3>Total global : <span id="globalTotal">0</span> <span id="globalCurrency">€</span></h3>
+
+  <button class="logout" onclick="logout()">Se déconnecter</button>
 
   <script>
-    const backendUrl = "https://crypto-portfolio-production-b673.up.railway.app";
-    const token = localStorage.getItem("token");
-    let chart;
-    let exchangeRate = 1;
-    let currency = "EUR";
-
-    if (!token) {
-      alert("Accès refusé. Veuillez vous connecter.");
-      window.location.href = "index.html";
-    }
-
-    document.getElementById("currencySelect").addEventListener("change", async (e) => {
-      currency = e.target.value;
-      await loadExchangeRate();
-      renderPortfolioPage();
-    });
-
-    async function loadExchangeRate() {
-      if (currency === "EUR") {
-        exchangeRate = 1;
-        updateCurrencyLabels();
-        return;
-      }
-      try {
-        const res = await fetch(`https://api.exchangerate.host/latest?base=EUR&symbols=USD`);
-        const data = await res.json();
-        exchangeRate = data.rates.USD;
-        updateCurrencyLabels();
-      } catch {
-        alert("Impossible de récupérer le taux de change");
-      }
-    }
-
-    function updateCurrencyLabels() {
-      document.querySelectorAll("#currencyLabel, #currencyLabel2").forEach(el => el.textContent = currency === "EUR" ? "€" : "$");
-    }
+    let currentCurrency = "eur";
 
     function logout() {
       localStorage.removeItem("token");
       window.location.href = "index.html";
     }
 
-    document.getElementById("cryptoForm").addEventListener("submit", async (e) => {
+    document.getElementById("cryptoForm").addEventListener("submit", async function(e) {
       e.preventDefault();
+
       const ticker = document.getElementById("ticker").value.trim().toUpperCase();
       const amount = parseFloat(document.getElementById("amount").value);
       const messageEl = document.getElementById("message");
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        messageEl.textContent = "Vous n'êtes pas authentifié.";
+        messageEl.className = "message error";
+        return;
+      }
+
       try {
-        const res = await fetch(`${backendUrl}/portfolio`, {
+        const response = await fetch(`https://crypto-portfolio-production-b673.up.railway.app/portfolio?currency=${currentCurrency}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -111,93 +146,82 @@
           },
           body: JSON.stringify({ ticker, amount })
         });
-        const data = await res.json();
-        if (res.ok) { messageEl.textContent = "Cryptomonnaie ajoutée !"; messageEl.className = "message"; renderPortfolioPage(); }
-        else { messageEl.textContent = data.message || "Erreur lors de l'ajout."; messageEl.className = "message error"; }
+
+        const data = await response.json();
+
+        if (response.ok) {
+          messageEl.textContent = "Cryptomonnaie ajoutée avec succès !";
+          messageEl.className = "message";
+          document.getElementById("cryptoForm").reset();
+          fetchPortfolio();
+        } else {
+          messageEl.textContent = data.message || "Erreur lors de l'ajout.";
+          messageEl.className = "message error";
+        }
       } catch (err) {
         messageEl.textContent = "Erreur réseau : " + err.message;
         messageEl.className = "message error";
       }
     });
 
-    async function deleteCrypto(ticker) {
-      if (!confirm(`Supprimer ${ticker} ?`)) return;
-      try {
-        const res = await fetch(`${backendUrl}/portfolio/${ticker}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (res.ok) renderPortfolioPage();
-        else alert(data.message || "Erreur suppression");
-      } catch (err) {
-        alert("Erreur réseau : " + err.message);
-      }
-    }
-
-    async function renderPortfolioPage() {
-      await loadExchangeRate();
+    async function fetchPortfolio() {
+      const token = localStorage.getItem("token");
       const tableBody = document.querySelector("#portfolioTable tbody");
-      tableBody.innerHTML = "<tr><td colspan='5'>Chargement...</td></tr>";
+      const messageEl = document.getElementById("message");
+
+      if (!token) {
+        messageEl.textContent = "Vous n'êtes pas authentifié.";
+        messageEl.className = "message error";
+        return;
+      }
+
       try {
-        const res = await fetch(`${backendUrl}/portfolio`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const res = await fetch(`https://crypto-portfolio-production-b673.up.railway.app/portfolio?currency=${currentCurrency}`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         });
+
         const data = await res.json();
+
         if (!res.ok) {
-          tableBody.innerHTML = "";
-          document.getElementById("message").textContent = data.message || "Erreur";
-          document.getElementById("message").className = "message error";
+          messageEl.textContent = data.message || "Erreur lors du chargement du portefeuille.";
+          messageEl.className = "message error";
           return;
         }
-        const port = data.portfolio || [];
+
         tableBody.innerHTML = "";
-        const chartData = [];
-        if (port.length === 0) {
-          tableBody.innerHTML = "<tr><td colspan='5'>Aucun actif</td></tr>";
-        } else {
-          port.forEach(item => {
-            const price = item.price * exchangeRate;
-            const total = item.total * exchangeRate;
-            const row = document.createElement("tr");
-            row.innerHTML = `
-              <td>${item.ticker}</td>
-              <td>${item.amount}</td>
-              <td>${price.toFixed(2)}</td>
-              <td>${total.toFixed(2)}</td>
-              <td><button onclick="deleteCrypto('${item.ticker}')">Supprimer</button></td>
-            `;
-            tableBody.appendChild(row);
-            chartData.push({ label: item.ticker, value: total });
-          });
-        }
-        renderChart(chartData);
+        document.getElementById("currencyLabel").textContent = currentCurrency === 'eur' ? '€' : '$';
+        document.getElementById("currencyLabelTotal").textContent = currentCurrency === 'eur' ? '€' : '$';
+        document.getElementById("globalCurrency").textContent = currentCurrency === 'eur' ? '€' : '$';
+
+        let totalGlobal = 0;
+
+        data.portfolio.forEach(item => {
+          totalGlobal += item.total;
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${item.ticker}</td>
+            <td>${item.amount}</td>
+            <td>${item.price.toFixed(2)}</td>
+            <td>${item.total.toFixed(2)}</td>
+          `;
+          tableBody.appendChild(row);
+        });
+
+        document.getElementById("globalTotal").textContent = totalGlobal.toFixed(2);
       } catch (err) {
-        document.getElementById("message").textContent = "Erreur réseau : " + err.message;
-        document.getElementById("message").className = "message error";
+        messageEl.textContent = "Erreur réseau : " + err.message;
+        messageEl.className = "message error";
       }
     }
 
-    function renderChart(data) {
-      const ctx = document.getElementById("portfolioChart").getContext("2d");
-      if (chart) chart.destroy();
-      chart = new Chart(ctx, {
-        type: "pie",
-        data: {
-          labels: data.map(d => d.label),
-          datasets: [{
-            data: data.map(d => d.value),
-            backgroundColor: ["#00bcd4", "#4caf50", "#ff9800", "#e91e63", "#9c27b0"]
-          }]
-        },
-        options: {
-          plugins: { legend: { labels: { color: "#fff" } } }
-        }
-      });
-    }
+    document.getElementById("currencyToggle").addEventListener("click", () => {
+      currentCurrency = currentCurrency === "eur" ? "usd" : "eur";
+      fetchPortfolio();
+    });
 
-    // Initialisation
-    renderPortfolioPage();
+    fetchPortfolio();
   </script>
 </body>
 </html>
