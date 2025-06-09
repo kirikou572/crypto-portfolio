@@ -1,5 +1,5 @@
 import express from "express";
-import Portfolio from "../models/PortfolioItem.mjs";
+import Portfolio from "../models/Portfolio.mjs"; // modèle à vérifier
 import authMiddleware from "../middleware/auth.mjs";
 import fetch from "node-fetch";
 
@@ -35,7 +35,6 @@ async function getCryptoPrice(ticker) {
   return data.data[ticker].quote.EUR.price;
 }
 
-// GET /portfolio - récupère le portfolio complet
 router.get("/", authMiddleware, async (req, res) => {
   const userId = req.user.id;
 
@@ -50,7 +49,7 @@ router.get("/", authMiddleware, async (req, res) => {
 
     for (const crypto of portfolio.cryptos) {
       try {
-        const price = await getCryptoPrice(crypto.ticker);
+        const price = await getCryptoPrice(crypto.ticker.toUpperCase());
         portfolioWithPrices.push({
           ticker: crypto.ticker,
           amount: crypto.amount,
@@ -75,7 +74,6 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-// POST /portfolio - ajoute ou met à jour une crypto
 router.post("/", authMiddleware, async (req, res) => {
   const userId = req.user.id;
   const { ticker, amount } = req.body;
@@ -88,22 +86,18 @@ router.post("/", authMiddleware, async (req, res) => {
     let portfolio = await Portfolio.findOne({ user: userId });
 
     if (!portfolio) {
-      // Crée un nouveau portfolio pour l’utilisateur
       portfolio = new Portfolio({
         user: userId,
         cryptos: [{ ticker: ticker.toUpperCase(), amount }],
       });
     } else {
-      // Cherche la crypto dans le tableau
       const index = portfolio.cryptos.findIndex(
         (c) => c.ticker.toUpperCase() === ticker.toUpperCase()
       );
 
       if (index !== -1) {
-        // Met à jour la quantité
         portfolio.cryptos[index].amount += amount;
       } else {
-        // Ajoute une nouvelle crypto
         portfolio.cryptos.push({ ticker: ticker.toUpperCase(), amount });
       }
     }
@@ -117,7 +111,6 @@ router.post("/", authMiddleware, async (req, res) => {
   }
 });
 
-// DELETE /portfolio/:ticker - supprime une crypto du tableau
 router.delete("/:ticker", authMiddleware, async (req, res) => {
   const userId = req.user.id;
   const ticker = req.params.ticker.toUpperCase();
@@ -129,7 +122,6 @@ router.delete("/:ticker", authMiddleware, async (req, res) => {
       return res.status(404).json({ message: "Portfolio introuvable" });
     }
 
-    // Filtre pour supprimer la crypto
     portfolio.cryptos = portfolio.cryptos.filter(
       (c) => c.ticker.toUpperCase() !== ticker
     );
