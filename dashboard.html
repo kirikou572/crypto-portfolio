@@ -19,9 +19,9 @@
       background: #1e1e1e;
       padding: 1rem;
       border-radius: 8px;
-      width: 320px;
+      width: 300px;
     }
-    input {
+    input, select {
       width: 100%;
       padding: 0.5rem;
       margin-bottom: 1rem;
@@ -41,18 +41,6 @@
     button.logout {
       margin-top: 2rem;
       background: #f44336;
-    }
-    button.delete-btn {
-      background: #f44336;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      border: none;
-      cursor: pointer;
-      color: white;
-      font-weight: bold;
-    }
-    button.delete-btn:hover {
-      background: #d32f2f;
     }
     .message {
       margin-top: 1rem;
@@ -74,23 +62,18 @@
     th {
       background-color: #1e1e1e;
     }
-    #currencySwitch {
-      margin-top: 1rem;
-      margin-bottom: 1rem;
-      cursor: pointer;
-      padding: 0.4rem 1rem;
-      border-radius: 4px;
+    .delete-btn {
+      background: #f44336;
       border: none;
-      background-color: #0097a7;
       color: white;
-      font-weight: bold;
+      padding: 0.3rem 0.6rem;
+      border-radius: 3px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
   <h1>Bienvenue sur votre dashboard</h1>
-
-  <button id="currencySwitch">Afficher en $</button>
 
   <h2>Ajouter une cryptomonnaie</h2>
   <form id="cryptoForm">
@@ -107,90 +90,131 @@
       <tr>
         <th>Ticker</th>
         <th>Quantité</th>
-        <th>Prix (<span id="priceCurrency">€</span>)</th>
-        <th>Total (<span id="totalCurrency">€</span>)</th>
-        <th>Action</th>
+        <th>Prix (€)</th>
+        <th>Total (€)</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody></tbody>
+    <tfoot>
+      <tr>
+        <th colspan="3" style="text-align:right;">Total global (€):</th>
+        <th id="globalTotal">0</th>
+        <th></th>
+      </tr>
+    </tfoot>
   </table>
-
-  <h3>Total global : <span id="globalTotal">0.00 €</span></h3>
 
   <button class="logout" onclick="logout()">Se déconnecter</button>
 
   <script>
-    const backendUrl = 'https://crypto-portfolio-production-b673.up.railway.app';
-
-    let currentCurrency = 'EUR'; // EUR or USD
-    let exchangeRate = 1; // EUR to USD rate
-    let portfolioData = [];
+    const apiBase = "https://crypto-portfolio-production-b673.up.railway.app";
 
     function logout() {
-      localStorage.removeItem('token');
-      window.location.href = 'index.html';
+      localStorage.removeItem("token");
+      window.location.href = "index.html";
     }
 
-    document.getElementById('currencySwitch').addEventListener('click', () => {
-      if (currentCurrency === 'EUR') {
-        currentCurrency = 'USD';
-        exchangeRate = 0; // Will fetch fresh rate
-        updateCurrencyDisplay();
-        fetchExchangeRate().then(() => {
-          renderPortfolio();
-        });
-      } else {
-        currentCurrency = 'EUR';
-        exchangeRate = 1;
-        updateCurrencyDisplay();
-        renderPortfolio();
+    async function fetchPortfolio() {
+      const token = localStorage.getItem("token");
+      const messageEl = document.getElementById("message");
+      const tableBody = document.querySelector("#portfolioTable tbody");
+      const globalTotalEl = document.getElementById("globalTotal");
+
+      if (!token) {
+        messageEl.textContent = "Vous n'êtes pas authentifié.";
+        messageEl.className = "message error";
+        return;
       }
-    });
 
-    function updateCurrencyDisplay() {
-      document.getElementById('priceCurrency').textContent = currentCurrency === 'EUR' ? '€' : '$';
-      document.getElementById('totalCurrency').textContent = currentCurrency === 'EUR' ? '€' : '$';
-      document.getElementById('globalTotal').textContent = currentCurrency === 'EUR' ? '0.00 €' : '0.00 $';
-      document.getElementById('currencySwitch').textContent = currentCurrency === 'EUR' ? 'Afficher en $' : 'Afficher en €';
-    }
-
-    async function fetchExchangeRate() {
       try {
-        const res = await fetch(`${backendUrl}/exchange-rate`);
-        if (!res.ok) throw new Error('Impossible de récupérer le taux de change');
+        const res = await fetch(`${apiBase}/portfolio`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         const data = await res.json();
-        exchangeRate = data.rate || 1;
-      } catch (error) {
-        alert('Erreur lors de la récupération du taux de change : ' + error.message);
-        exchangeRate = 1;
+
+        if (!res.ok) {
+          messageEl.textContent = data.message || "Erreur lors du chargement du portefeuille.";
+          messageEl.className = "message error";
+          return;
+        }
+
+        tableBody.innerHTML = "";
+        let globalTotal = 0;
+
+        data.portfolio.forEach(item => {
+          const row = document.createElement("tr");
+
+          row.innerHTML = `
+            <td>${item.ticker}</td>
+            <td>${item.amount}</td>
+            <td>${item.price.toFixed(2)}</td>
+            <td>${item.total.toFixed(2)}</td>
+            <td><button class="delete-btn" data-ticker="${item.ticker}">Supprimer</button></td>
+          `;
+
+          tableBody.appendChild(row);
+          globalTotal += item.total;
+        });
+
+        globalTotalEl.textContent = globalTotal.toFixed(2);
+
+        messageEl.textContent = "";
+        messageEl.className = "message";
+
+        // Attach delete handlers
+        document.querySelectorAll(".delete-btn").forEach(btn => {
+          btn.addEventListener("click", async (e) => {
+            const ticker = e.target.getAttribute("data-ticker");
+            if (confirm(`Voulez-vous vraiment supprimer ${ticker} ?`)) {
+              try {
+                const deleteRes = await fetch(`${apiBase}/portfolio/${ticker}`, {
+                  method: "DELETE",
+                  headers: { Authorization: `Bearer ${token}` }
+                });
+                const deleteData = await deleteRes.json();
+
+                if (deleteRes.ok) {
+                  messageEl.textContent = deleteData.message || "Cryptomonnaie supprimée.";
+                  messageEl.className = "message";
+                  fetchPortfolio(); // refresh
+                } else {
+                  messageEl.textContent = deleteData.message || "Erreur lors de la suppression.";
+                  messageEl.className = "message error";
+                }
+              } catch (err) {
+                messageEl.textContent = "Erreur réseau : " + err.message;
+                messageEl.className = "message error";
+              }
+            }
+          });
+        });
+
+      } catch (err) {
+        messageEl.textContent = "Erreur réseau : " + err.message;
+        messageEl.className = "message error";
       }
     }
 
-    document.getElementById('cryptoForm').addEventListener('submit', async (e) => {
+    document.getElementById("cryptoForm").addEventListener("submit", async function(e) {
       e.preventDefault();
 
-      const ticker = document.getElementById('ticker').value.trim().toUpperCase();
-      const amount = parseFloat(document.getElementById('amount').value);
-      const messageEl = document.getElementById('message');
+      const ticker = document.getElementById("ticker").value.trim().toUpperCase();
+      const amount = parseFloat(document.getElementById("amount").value);
+      const messageEl = document.getElementById("message");
+      const token = localStorage.getItem("token");
 
-      const token = localStorage.getItem('token');
       if (!token) {
-        messageEl.textContent = 'Vous n\'êtes pas authentifié.';
-        messageEl.className = 'message error';
-        return;
-      }
-
-      if (!ticker || isNaN(amount) || amount <= 0) {
-        messageEl.textContent = 'Veuillez saisir un ticker valide et une quantité positive.';
-        messageEl.className = 'message error';
+        messageEl.textContent = "Vous n'êtes pas authentifié.";
+        messageEl.className = "message error";
         return;
       }
 
       try {
-        const response = await fetch(`${backendUrl}/portfolio`, {
-          method: 'POST',
+        const response = await fetch(`${apiBase}/portfolio`, {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ ticker, amount })
@@ -199,128 +223,21 @@
         const data = await response.json();
 
         if (response.ok) {
-          messageEl.textContent = 'Cryptomonnaie ajoutée avec succès !';
-          messageEl.className = 'message';
-          document.getElementById('cryptoForm').reset();
-          await fetchPortfolio(); // Met à jour l'affichage
+          messageEl.textContent = "Cryptomonnaie ajoutée avec succès !";
+          messageEl.className = "message";
+          this.reset();
+          fetchPortfolio();
         } else {
-          messageEl.textContent = data.message || 'Erreur lors de l\'ajout.';
-          messageEl.className = 'message error';
+          messageEl.textContent = data.message || "Erreur lors de l'ajout.";
+          messageEl.className = "message error";
         }
       } catch (err) {
-        messageEl.textContent = 'Erreur réseau : ' + err.message;
-        messageEl.className = 'message error';
+        messageEl.textContent = "Erreur réseau : " + err.message;
+        messageEl.className = "message error";
       }
     });
 
-    async function fetchPortfolio() {
-      const token = localStorage.getItem('token');
-      const messageEl = document.getElementById('message');
-      const tableBody = document.querySelector('#portfolioTable tbody');
-
-      if (!token) {
-        messageEl.textContent = 'Vous n\'êtes pas authentifié.';
-        messageEl.className = 'message error';
-        return;
-      }
-
-      try {
-        const res = await fetch(`${backendUrl}/portfolio`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          messageEl.textContent = data.message || 'Erreur lors du chargement du portefeuille.';
-          messageEl.className = 'message error';
-          return;
-        }
-
-        portfolioData = data.portfolio;
-        renderPortfolio();
-      } catch (err) {
-        messageEl.textContent = 'Erreur réseau : ' + err.message;
-        messageEl.className = 'message error';
-      }
-    }
-
-    function renderPortfolio() {
-      const tableBody = document.querySelector('#portfolioTable tbody');
-      tableBody.innerHTML = '';
-
-      if (!portfolioData.length) {
-        tableBody.innerHTML = '<tr><td colspan="5">Aucune cryptomonnaie dans le portefeuille.</td></tr>';
-        document.getElementById('globalTotal').textContent = currentCurrency === 'EUR' ? '0.00 €' : '0.00 $';
-        return;
-      }
-
-      let totalGlobal = 0;
-
-      portfolioData.forEach(item => {
-        const price = currentCurrency === 'EUR' ? item.price : item.price * exchangeRate;
-        const total = price * item.amount;
-        totalGlobal += total;
-
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${item.ticker}</td>
-          <td>${item.amount}</td>
-          <td>${price.toFixed(2)}</td>
-          <td>${total.toFixed(2)}</td>
-          <td><button class="delete-btn" data-ticker="${item.ticker}">Supprimer</button></td>
-        `;
-        tableBody.appendChild(tr);
-      });
-
-      document.getElementById('globalTotal').textContent = totalGlobal.toFixed(2) + (currentCurrency === 'EUR' ? ' €' : ' $');
-
-      // Attach delete listeners
-      document.querySelectorAll('.delete-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          const ticker = e.target.getAttribute('data-ticker');
-          if (!confirm(`Supprimer ${ticker} de votre portefeuille ?`)) return;
-
-          try {
-            const token = localStorage.getItem('token');
-            const res = await fetch(`${backendUrl}/portfolio/${ticker}`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${token}` }
-            });
-
-            const data = await res.json();
-
-            if (res.ok) {
-              messageEl.textContent = `Cryptomonnaie ${ticker} supprimée.`;
-              messageEl.className = 'message';
-              await fetchPortfolio();
-            } else {
-              messageEl.textContent = data.message || 'Erreur lors de la suppression.';
-              messageEl.className = 'message error';
-            }
-          } catch (err) {
-            messageEl.textContent = 'Erreur réseau : ' + err.message;
-            messageEl.className = 'message error';
-          }
-        });
-      });
-    }
-
-    // Vérifier authentification au chargement
-    window.addEventListener('load', async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        window.location.href = 'index.html';
-        return;
-      }
-
-      updateCurrencyDisplay();
-
-      if (currentCurrency === 'USD') {
-        await fetchExchangeRate();
-      }
-      await fetchPortfolio();
-    });
+    fetchPortfolio();
   </script>
 </body>
 </html>
