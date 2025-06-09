@@ -1,82 +1,86 @@
 import express from 'express';
-import authenticateToken from '../middleware/authenticate.mjs';
-import User from '../models/User.mjs';
 import fetch from 'node-fetch';
+import PortfolioItem from '../models/PortfolioItem.js'; // modèle mongoose, à adapter si besoin
+import authMiddleware from '../middleware/auth.js'; // middleware d’authentification JWT
 
 const router = express.Router();
+const CMC_API_KEY = process.env.CMC_API_KEY;
 
-// 📌 Helper : récupération du taux de change EUR <-> USD
-async function getExchangeRate(toCurrency = 'eur') {
-  try {
-    const res = await fetch('https://api.exchangerate.host/latest?base=EUR');
-    const data = await res.json();
-    const rate = data.rates[toCurrency.toUpperCase()];
-    return rate || 1; // 1 si non trouvé
-  } catch {
-    return null;
+async function getCryptoPriceCMC(ticker) {
+  const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${ticker}`;
+
+  const response = await fetch(url, {
+    headers: {
+      'X-CMC_PRO_API_KEY': CMC_API_KEY,
+      Accept: 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error('Erreur API CoinMarketCap');
   }
+
+  const data = await response.json();
+
+  if (!data.data || !data.data[ticker] || !data.data[ticker].quote || !data.data[ticker].quote.EUR) {
+    throw new Error('Cryptomonnaie non reconnue');
+  }
+
+  return data.data[ticker].quote.EUR.price;
 }
 
-// 🔍 Récupérer le portefeuille
-router.get('/', authenticateToken, async (req, res) => {
-  const currency = req.query.currency || 'eur';
-  const rate = await getExchangeRate(currency);
-  if (!rate) return res.status(500).json({ message: 'Impossible de récupérer le taux de change' });
-
+// Récupérer le portfolio de l'utilisateur
+router.get('/', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId);
-    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
-
-    const portfolio = user.portfolio.map(item => {
-      const total = item.amount * item.price * rate;
-      return {
-        ...item.toObject(),
-        price: item.price * rate,
-        total
-      };
-    });
-
-    const global = portfolio.reduce((acc, val) => acc + val.total, 0);
-
-    res.json({ portfolio, totalValue: global });
+    const portfolio = await PortfolioItem.find({ userId: req.user.id });
+    res.json({ portfolio });
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur' });
   }
 });
 
-// ➕ Ajouter une crypto
-router.post('/', authenticateToken, async (req, res) => {
-  const { ticker, amount } = req.body;
-
+// Ajouter une cryptomonnaie
+router.post('/', authMiddleware, async (req, res) => {
   try {
-    const priceRes = await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ticker.toLowerCase()}&vs_currencies=eur`);
-    const priceData = await priceRes.json();
-    const price = priceData[ticker.toLowerCase()]?.eur;
+    const { ticker, amount } = req.body;
+    if (!ticker || !amount) {
+      return res.status(400).json({ message: 'Ticker et quantité requis' });
+    }
 
-    if (!price) return res.status(400).json({ message: "Cryptomonnaie non reconnue" });
+    const price = await getCryptoPriceCMC(ticker.toUpperCase());
 
-    const user = await User.findById(req.user.userId);
-    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
+    // Vérifier si crypto existe déjà dans le portfolio de l’utilisateur
+    let item = await PortfolioItem.findOne({ userId: req.user.id, ticker: ticker.toUpperCase() });
 
-    user.portfolio.push({ ticker, amount, price });
-    await user.save();
-    res.json({ message: 'Crypto ajoutée' });
+    if (item) {
+      // Mise à jour quantité et total
+      item.amount += amount;
+      item.price = price;
+      item.total = item.amount * price;
+    } else {
+      item = new PortfolioItem({
+        userId: req.user.id,
+        ticker: ticker.toUpperCase(),
+        amount,
+        price,
+        total: amount * price,
+      });
+    }
+
+    await item.save();
+
+    res.json({ message: 'Cryptomonnaie ajoutée avec succès', portfolioItem: item });
   } catch (err) {
-    res.status(500).json({ message: 'Erreur serveur' });
+    res.status(400).json({ message: err.message });
   }
 });
 
-// ❌ Supprimer une crypto (par ticker)
-router.delete('/:ticker', authenticateToken, async (req, res) => {
-  const tickerToRemove = req.params.ticker.toUpperCase();
-
+// Supprimer une crypto du portfolio
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId);
-    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
-
-    user.portfolio = user.portfolio.filter(item => item.ticker.toUpperCase() !== tickerToRemove);
-    await user.save();
-    res.json({ message: 'Crypto supprimée' });
+    const item = await PortfolioItem.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
+    if (!item) return res.status(404).json({ message: 'Item non trouvé' });
+    res.json({ message: 'Cryptomonnaie supprimée avec succès' });
   } catch (err) {
     res.status(500).json({ message: 'Erreur serveur' });
   }
