@@ -1,12 +1,13 @@
+import dotenv from "dotenv";
+dotenv.config();
+
 import express from "express";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 import cors from "cors";
 import authRoutes from "./routes/auth.mjs";
 import portfolioRoutes from "./routes/portfolio.mjs";
 import authMiddleware from "./middleware/auth.mjs";
 
-dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
