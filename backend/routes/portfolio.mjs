@@ -1,68 +1,86 @@
-import express from 'express';
-import { getCryptoPrice } from '../services/coinmarketcap.mjs';
-import Portfolio from '../models/Portfolio.mjs'; // <-- modèle Mongoose
+import express from "express";
+import jwt from "jsonwebtoken";
+import User from "../models/User.mjs";
+import fetch from "node-fetch";
 
 const router = express.Router();
 
-// Middleware d'authentification simulée
-function fakeAuth(req, res, next) {
-  const token = req.headers.authorization?.split(' ')[1];
-  if (!token) {
-    return res.status(401).json({ message: "Token manquant" });
-  }
+// Middleware d'authentification
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
+  if (!token) return res.status(401).json({ message: "Token manquant" });
 
-  req.user = { id: token }; // Le token est utilisé comme ID utilisateur
-  next();
+  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ message: "Token invalide" });
+    req.user = user;
+    next();
+  });
 }
 
-router.use(fakeAuth);
+// Fonction pour récupérer le prix d'une crypto
+async function getCryptoPrice(ticker) {
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ticker.toLowerCase()}&vs_currencies=eur`;
+  const response = await fetch(url);
+  const data = await response.json();
+  if (!data[ticker.toLowerCase()]) throw new Error("Prix non trouvé");
+  return data[ticker.toLowerCase()].eur;
+}
 
-// GET /portfolio — récupère les cryptos de l'utilisateur depuis MongoDB
-router.get('/', async (req, res) => {
+// GET portefeuille
+router.get("/", authenticateToken, async (req, res) => {
   try {
-    const portfolio = await Portfolio.find({ userId: req.user.id });
-    res.json({ portfolio });
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: "Utilisateur introuvable" });
+
+    const portfolioWithPrices = await Promise.all(user.portfolio.map(async (entry) => {
+      const price = await getCryptoPrice(entry.ticker);
+      return {
+        ticker: entry.ticker,
+        amount: entry.amount,
+        price,
+        total: entry.amount * price,
+      };
+    }));
+
+    res.json({ portfolio: portfolioWithPrices });
   } catch (err) {
-    console.error("Erreur lecture portefeuille :", err);
-    res.status(500).json({ message: "Erreur serveur" });
+    res.status(500).json({ message: "Erreur serveur", error: err.message });
   }
 });
 
-// POST /portfolio — ajoute une crypto avec son prix dans MongoDB
-router.post('/', async (req, res) => {
+// POST ajouter crypto
+router.post("/", authenticateToken, async (req, res) => {
   const { ticker, amount } = req.body;
-
-  if (!ticker || !amount) {
-    return res.status(400).json({ message: 'Ticker et quantité requis' });
-  }
+  if (!ticker || !amount) return res.status(400).json({ message: "Données manquantes" });
 
   try {
-    const price = await getCryptoPrice(ticker.toUpperCase());
+    const user = await User.findById(req.user.id);
+    const existing = user.portfolio.find(entry => entry.ticker === ticker);
 
-    if (!price) {
-      return res.status(404).json({ message: "Cryptomonnaie non trouvée" });
+    if (existing) {
+      existing.amount += amount;
+    } else {
+      user.portfolio.push({ ticker, amount });
     }
 
-    const newCrypto = new Portfolio({
-      userId: req.user.id,
-      ticker: ticker.toUpperCase(),
-      amount,
-      price,
-      total: amount * price
-    });
-
-    await newCrypto.save();
-
-    res.status(201).json({
-      message: 'Crypto ajoutée avec succès',
-      data: newCrypto
-    });
+    await user.save();
+    res.json({ message: "Ajouté avec succès" });
   } catch (err) {
-    console.error("Erreur ajout crypto :", err);
-    res.status(500).json({
-      message: 'Erreur lors de l’appel à CoinMarketCap ou MongoDB',
-      error: err.message
-    });
+    res.status(500).json({ message: "Erreur serveur", error: err.message });
+  }
+});
+
+// DELETE supprimer crypto
+router.delete("/:ticker", authenticateToken, async (req, res) => {
+  const { ticker } = req.params;
+  try {
+    const user = await User.findById(req.user.id);
+    user.portfolio = user.portfolio.filter(entry => entry.ticker !== ticker);
+    await user.save();
+    res.json({ message: "Cryptomonnaie supprimée" });
+  } catch (err) {
+    res.status(500).json({ message: "Erreur serveur", error: err.message });
   }
 });
 
