@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import authRoutes from "./routes/auth.mjs";
 import portfolioRoutes from "./routes/portfolio.mjs";
-import authMiddleware from "./middleware/auth.js";
+import authMiddleware from "./middleware/auth.mjs";
 
 dotenv.config();
 
