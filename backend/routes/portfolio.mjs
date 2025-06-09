@@ -1,5 +1,5 @@
 import express from "express";
-import Portfolio from "../models/Portfolio.mjs"; // modèle à vérifier
+import Portfolio from "../models/PortfolioItem.mjs"; // modèle à vérifier
 import authMiddleware from "../middleware/auth.mjs";
 import fetch from "node-fetch";
 
