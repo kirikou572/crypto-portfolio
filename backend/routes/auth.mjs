@@ -1,45 +1,43 @@
-import express from "express";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import User from "../models/User.mjs"; // modèle utilisateur
+import express from 'express';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
+import User from '../models/User.mjs';
 
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || "super_secret_key";
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey';
 
-// ✅ Route d'inscription
-router.post("/signup", async (req, res) => {
+// Connexion
+router.post('/login', async (req, res) => {
   const { email, password } = req.body;
-
   try {
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: "Utilisateur déjà existant" });
+    const user = await User.findOne({ email });
+    if (!user) return res.status(404).json({ message: 'Utilisateur introuvable' });
 
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const newUser = new User({ email, password: hashedPassword });
-    await newUser.save();
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(401).json({ message: 'Mot de passe incorrect' });
 
-    res.json({ message: "Inscription réussie" });
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '2h' });
+    res.json({ token });
   } catch (err) {
-    res.status(500).json({ message: "Erreur serveur", error: err.message });
+    res.status(500).json({ message: 'Erreur serveur' });
   }
 });
 
-// ✅ Route de connexion
-router.post("/login", async (req, res) => {
+// Inscription
+router.post('/signup', async (req, res) => {
   const { email, password } = req.body;
-
   try {
-    const user = await User.findOne({ email });
-    if (!user) return res.status(401).json({ message: "Email ou mot de passe incorrect" });
+    const existing = await User.findOne({ email });
+    if (existing) return res.status(400).json({ message: 'Email déjà utilisé' });
 
-    const isValid = await bcrypt.compare(password, user.password);
-    if (!isValid) return res.status(401).json({ message: "Email ou mot de passe incorrect" });
+    const hashed = await bcrypt.hash(password, 10);
+    const newUser = new User({ email, password: hashed, portfolio: [] });
+    await newUser.save();
 
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: "2h" });
-
+    const token = jwt.sign({ userId: newUser._id }, JWT_SECRET, { expiresIn: '2h' });
     res.json({ token });
   } catch (err) {
-    res.status(500).json({ message: "Erreur serveur", error: err.message });
+    res.status(500).json({ message: 'Erreur serveur' });
   }
 });
 
