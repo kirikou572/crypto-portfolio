@@ -1,5 +1,5 @@
 import express from 'express';
-import User from '../models/User.js'; // modèle mongoose utilisateur
+import User from '../models/User.mjs'; // modèle mongoose utilisateur
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
