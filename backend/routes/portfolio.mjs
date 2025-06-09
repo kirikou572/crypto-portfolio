@@ -1,5 +1,5 @@
 import express from "express";
-import Portfolio from "../models/Portfolio.mjs";
+import Portfolio from "../models/PortfolioItem.mjs";
 import getCryptoPrice from "../services/coinmarketcap.mjs"; // service pour récupérer prix
 const router = express.Router();
 
