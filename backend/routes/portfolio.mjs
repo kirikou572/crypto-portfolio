@@ -9,25 +9,33 @@ const CMC_API_KEY = process.env.CMC_API_KEY;
 async function getCryptoPriceCMC(ticker) {
   const url = `https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest?symbol=${ticker}`;
 
-  const response = await fetch(url, {
-    headers: {
-      'X-CMC_PRO_API_KEY': CMC_API_KEY,
-      Accept: 'application/json',
-    },
-  });
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'X-CMC_PRO_API_KEY': CMC_API_KEY,
+        Accept: 'application/json'
+      }
+    });
 
-  if (!response.ok) {
+    if (!response.ok) {
+      throw new Error(`Erreur API CoinMarketCap: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    const price = data.data[ticker]?.quote?.EUR?.price;
+
+    if (!price) {
+      throw new Error('Prix introuvable pour la cryptomonnaie ' + ticker);
+    }
+
+    return price;
+  } catch (err) {
+    console.error(err);
     throw new Error('Erreur API CoinMarketCap');
   }
-
-  const data = await response.json();
-
-  if (!data.data || !data.data[ticker] || !data.data[ticker].quote || !data.data[ticker].quote.EUR) {
-    throw new Error('Cryptomonnaie non reconnue');
-  }
-
-  return data.data[ticker].quote.EUR.price;
 }
+
+export default getCryptoPrice;
 
 // Récupérer le portfolio de l'utilisateur
 router.get('/', authMiddleware, async (req, res) => {
